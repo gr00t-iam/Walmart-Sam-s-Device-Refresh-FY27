@@ -319,30 +319,41 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
 
 
 <!-- ═══ ROUTE SCHEDULE ═══ -->
-<div id="pg-route" class="pgcol">
-  <div style="padding:20px 18px;max-width:1200px;margin:0 auto;width:100%;">
-    <h2 style="font-size:20px;font-weight:800;margin-bottom:3px;">&#x1F5FA; Route Schedule</h2>
-    <p style="color:var(--mut);font-size:12px;margin-bottom:16px;">Deployment routes &middot; click a row to see store devices</p>
+<div id="pg-route" class="pg" style="flex-direction:row;">
+  <!-- Sidebar — mirrors dashboard .sb pattern -->
+  <nav class="sb">
+    <div class="sbin">
+      <div class="sbttl">Search by Field</div>
+      <input class="sbinp" id="rs-store"   placeholder="Store # (exact)" oninput="rsFilter()">
+      <input class="sbinp" id="rs-city"    placeholder="City..."          oninput="rsFilter()">
+      <input class="sbinp" id="rs-state"   placeholder="State (e.g. TX)"  oninput="rsFilter()">
+      <input class="sbinp" id="rs-date"    placeholder="Date (e.g. 2026-07)" oninput="rsFilter()">
+      <input class="sbinp" id="rs-address" placeholder="Address..."       oninput="rsFilter()">
 
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start;">
-      <div style="display:flex;flex-direction:column;gap:6px;min-width:140px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;">Route</div>
-        <div id="rs-route-filters" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
-        <div style="margin-top:8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;">Store Type</div>
-        <div id="rs-type-filters" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
-      </div>
-      <div style="flex:1;min-width:220px;">
-        <input id="rs-search" type="text" placeholder="Search store #, city, state, date&#x2026;"
-          style="width:100%;padding:9px 12px;font-size:13px;font-family:var(--mono);background:var(--surf);border:1px solid var(--brd);border-radius:6px;color:var(--txt);outline:none;margin-bottom:8px;"
-          oninput="rsFilter()">
-        <div id="rs-stats" style="font-size:11px;color:var(--dim);font-family:var(--mono);"></div>
+      <div class="sbttl" style="margin-top:10px;">Route</div>
+      <div id="rs-route-filters" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+
+      <div class="sbttl" style="margin-top:10px;">Store Type</div>
+      <div id="rs-type-filters" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+
+      <div style="margin-top:10px;">
+        <button class="tbtn" style="width:100%;font-size:11px;" onclick="rsClearAll()">&#x2715; Clear All</button>
       </div>
     </div>
+  </nav>
 
-    <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:8px;background:var(--surf);">
+  <!-- Main content area -->
+  <div class="cnt" style="display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Toolbar -->
+    <div class="tlb">
+      <span class="rc" id="rs-stats" style="font-size:12px;color:var(--mut);"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="ta" style="overflow-x:auto;overflow-y:auto;">
       <table id="rs-tbl" style="width:100%;border-collapse:collapse;min-width:900px;font-size:12px;">
-        <thead>
-          <tr style="background:var(--surf2);">
+        <thead style="position:sticky;top:0;z-index:1;background:var(--surf2);">
+          <tr>
             <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Route</th>
             <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Stop</th>
             <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Store #</th>
@@ -359,12 +370,17 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
         </thead>
         <tbody id="rs-tbody"></tbody>
       </table>
+      <div id="rs-empty" style="display:none;padding:46px;text-align:center;color:var(--mut);">
+        <div style="font-size:32px;opacity:.3;margin-bottom:8px;">&#x1F50D;</div>
+        <div style="font-weight:600;font-size:13px;">No stops match your filters</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:3px;">Try a different store number or clear filters</div>
+      </div>
     </div>
-    <div id="rs-empty" style="display:none;text-align:center;padding:40px;color:var(--dim);font-size:13px;">No stops match your filters.</div>
 
-    <div id="rs-dev-panel" style="display:none;margin-top:14px;border:1px solid var(--brd);border-radius:8px;background:var(--surf);padding:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div id="rs-dev-title" style="font-size:14px;font-weight:700;"></div>
+    <!-- Device detail panel pinned to bottom of content area -->
+    <div id="rs-dev-panel" style="display:none;border-top:2px solid var(--acc);background:var(--surf);padding:14px 16px;max-height:45vh;overflow-y:auto;flex-shrink:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div id="rs-dev-title" style="font-size:13px;font-weight:700;"></div>
         <button onclick="rsCloseDevPanel()" style="background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px;">&times;</button>
       </div>
       <div id="rs-dev-body"></div>
@@ -3498,19 +3514,41 @@ function rsBuildFilters() {
 }
 
 function rsFilter() {
-  var q = (document.getElementById('rs-search').value || '').trim().toLowerCase();
+  // Exact match on Store # (same as dashboard sb-site logic)
+  var storeQ  = (document.getElementById('rs-store').value   || '').trim();
+  var cityQ   = (document.getElementById('rs-city').value    || '').trim().toLowerCase();
+  var stateQ  = (document.getElementById('rs-state').value   || '').trim().toLowerCase();
+  var dateQ   = (document.getElementById('rs-date').value    || '').trim().toLowerCase();
+  var addrQ   = (document.getElementById('rs-address').value || '').trim().toLowerCase();
+
   rsFilt = rsData.filter(function(r) {
     if (rsActiveRoute !== 'all' && r['Route'] !== rsActiveRoute) return false;
-    if (rsActiveType !== 'all' && r['Store type'] !== rsActiveType) return false;
-    if (q) {
-      var hay = [r['Store Number'], r['City'], r['State'], r['Tentative Date'], r['Address']].join(' ').toLowerCase();
-      if (hay.indexOf(q) === -1) return false;
-    }
+    if (rsActiveType  !== 'all' && r['Store type'] !== rsActiveType) return false;
+    // Store # — EXACT match (mirrors dashboard sb-site behaviour)
+    if (storeQ && (r['Store Number'] || '').trim() !== storeQ) return false;
+    // Other fields — partial match
+    if (cityQ  && (r['City']  || '').toLowerCase().indexOf(cityQ)  === -1) return false;
+    if (stateQ && (r['State'] || '').toLowerCase().indexOf(stateQ) === -1) return false;
+    if (dateQ  && (r['Tentative Date'] || '').toLowerCase().indexOf(dateQ) === -1) return false;
+    if (addrQ  && (r['Address'] || '').toLowerCase().indexOf(addrQ) === -1) return false;
     return true;
   });
+
   document.getElementById('rs-stats').textContent = rsFilt.length.toLocaleString() + ' stops';
   rsRender();
   rsCloseDevPanel();
+}
+
+function rsClearAll() {
+  ['rs-store','rs-city','rs-state','rs-date','rs-address'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  rsActiveRoute = 'all';
+  rsActiveType  = 'all';
+  document.querySelectorAll('#rs-route-filters .tbtn, #rs-type-filters .tbtn').forEach(function(b){
+    b.classList.toggle('on', b.dataset.val === 'all');
+  });
+  rsFilter();
 }
 
 function rsRender() {
