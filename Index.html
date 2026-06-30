@@ -232,7 +232,7 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
 
 <!-- ═══ ADMIN ═══ -->
 <div id="pg-adm" class="pg" style="flex-direction:column;">
-  <div class="ab">⚠️ <strong>Admin Mode</strong> — Deletions are session-only. Reload to restore all data.</div>
+  <div class="ab">⚠️ <strong>Admin Mode</strong> — Changes here write directly to the live Supabase database immediately. There is no undo. The database currently accepts writes from anyone with the embedded API key (no login required) — treat this page's URL as sensitive.</div>
   <div style="display:flex;flex:1;overflow:hidden;">
     <nav class="sb">
       <div class="sbtabs">
@@ -1824,7 +1824,7 @@ async function loadDevices() {
     let wmRows = [], scRows = [], offset = 0, done = false;
     
     while (!done) {
-      const url = `${SUPA_URL}/devices?select=hostname,serial,role,cur_model,new_model,site,address,ip,mac,replace,source,warning&order=id&offset=${offset}&limit=${PAGE}`;
+      const url = `${SUPA_URL}/devices?select=id,hostname,serial,role,cur_model,new_model,site,address,city,state,zip,ip,mac,replace,brand,device_cat,sheet_tab&order=id&offset=${offset}&limit=${PAGE}`;
       const resp = await fetch(url, {
         headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
       });
@@ -1833,9 +1833,15 @@ async function loadDevices() {
       if (batch.length === 0) { done = true; break; }
       
       for (const d of batch) {
-        const row = [d.hostname, d.serial, d.role, d.cur_model, d.new_model, d.site, d.address, d.ip, d.mac, d.replace, d.source, d.warning];
-        if (d.source && d.source.endsWith('-SC')) scRows.push(row);
-        else wmRows.push(row);
+        const isSC = d.brand === 'sams';
+        const isTC = d.device_cat === 'Thin Client';
+        // Derive a 'source' tag matching the original PC-WM / TC-Refresh / PC-SC / TC-Misty convention
+        // so downstream filters (PC Only / TC Only) keep working unmodified.
+        const source = isTC ? (isSC ? 'TC-Misty' : 'TC-Refresh') : (isSC ? 'PC-SC' : 'PC-WM');
+        const arr = [d.hostname, d.serial, d.role, d.cur_model, d.new_model, d.site, d.address, d.ip, d.mac, d.replace, source, null, d.city, d.state, d.zip, d.sheet_tab];
+        const rec = { d: arr, id: d.id, brand: isSC ? 'sams' : 'walmart' };
+        if (isSC) scRows.push(rec);
+        else wmRows.push(rec);
       }
       
       offset += PAGE;
@@ -1883,12 +1889,12 @@ let cBr='walmart',cD=[],filt=[],cp=1,ps=100,tp=1,sC=-1,sD=1,rFR='',sTm='',sbV={s
 window.addEventListener('load',()=>{ldP();bldCC();});
 function showPg(n,btn){document.querySelectorAll('.pg,.pgcol').forEach(p=>{p.classList.remove('on');p.style.display='none';});document.querySelectorAll('.hnbtn').forEach(b=>b.classList.remove('on'));const pg=document.getElementById('pg-'+n);pg.style.display='flex';pg.classList.add('on');if(btn)btn.classList.add('on');if(n==='adm')admInit();if(n==='ref')initRef();}
 function swBr(br,el){cBr=br;cD=br==='walmart'?WM:SC;document.querySelectorAll('#pg-db .sbtb').forEach(b=>b.classList.remove('on'));if(el)el.classList.add('on');else document.querySelectorAll('#pg-db .sbtb').forEach(b=>{if((br==='walmart'&&b.classList.contains('wm'))||(br==='sams'&&b.classList.contains('sc')))b.classList.add('on');});rFR='';sTm='';_qff=null;Object.keys(sbV).forEach(k=>sbV[k]='');['sb-site','sb-hostname','sb-serial','sb-model','sb-newmodel','sb-address','sb-ip','sb-mac'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('srch').value='';['ipo','rpo','wno'].forEach(id=>document.getElementById(id).checked=false);cp=1;sC=-1;sD=1;bldRoles();bldQF();rebH();applyF();}
-function bldQF(){const c=document.getElementById('sb-qf');c.innerHTML='';[['Replace=YES',r=>r.d[9].toUpperCase()==='YES'],['Has IP',r=>!!r.d[7]],['PC Only',r=>r.d[10]!=='TC-Refresh'&&r.d[10]!=='TC-Misty'],['TC Only',r=>r.d[10]==='TC-Refresh'||r.d[10]==='TC-Misty'],['⚠ Flagged',r=>!!r.d[11]]].forEach(q=>{const b=document.createElement('button');b.className='tbtn';b.textContent=q[0];b.style.cssText='width:100%;text-align:left;font-size:11px;margin-bottom:2px;';b.onclick=()=>{const wa=b.classList.contains('on');document.querySelectorAll('#sb-qf .tbtn').forEach(x=>x.classList.remove('on'));if(!wa){b.classList.add('on');_qff=q[1];}else _qff=null;cp=1;applyF();};c.appendChild(b);});}
+function bldQF(){const c=document.getElementById('sb-qf');c.innerHTML='';[['Replace=YES',r=>(r.d[9]||'').toUpperCase()==='YES'],['Has IP',r=>!!r.d[7]],['PC Only',r=>r.d[10]!=='TC-Refresh'&&r.d[10]!=='TC-Misty'],['TC Only',r=>r.d[10]==='TC-Refresh'||r.d[10]==='TC-Misty'],['⚠ Flagged',r=>!!r.d[11]]].forEach(q=>{const b=document.createElement('button');b.className='tbtn';b.textContent=q[0];b.style.cssText='width:100%;text-align:left;font-size:11px;margin-bottom:2px;';b.onclick=()=>{const wa=b.classList.contains('on');document.querySelectorAll('#sb-qf .tbtn').forEach(x=>x.classList.remove('on'));if(!wa){b.classList.add('on');_qff=q[1];}else _qff=null;cp=1;applyF();};c.appendChild(b);});}
 function bldRoles(){const cn={};cD.forEach(r=>{const role=r.d[2]||'Unknown';cn[role]=(cn[role]||0)+1;});const c=document.getElementById('sb-roles');c.innerHTML='';Object.entries(cn).sort((a,b)=>b[1]-a[1]).forEach(([role,cnt])=>{const b=document.createElement('button');b.className='tbtn';b.innerHTML=`<span style="flex:1;text-align:left;font-size:11px;">${role}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--dim);">${cnt.toLocaleString()}</span>`;b.style.cssText='width:100%;display:flex;align-items:center;border-radius:3px;margin-bottom:1px;';b.onclick=()=>{if(rFR===role){rFR='';b.classList.remove('on');}else{rFR=role;document.querySelectorAll('#sb-roles .tbtn').forEach(x=>x.classList.remove('on'));b.classList.add('on');}cp=1;applyF();};c.appendChild(b);});}
 function sbFn(){['site','hostname','serial','model','newmodel','address','ip','mac'].forEach(k=>{const el=document.getElementById('sb-'+k);sbV[k]=el?el.value.toLowerCase():'';});cp=1;applyF();}
 function clrAll(){rFR='';sTm='';_qff=null;Object.keys(sbV).forEach(k=>sbV[k]='');['sb-site','sb-hostname','sb-serial','sb-model','sb-newmodel','sb-address','sb-ip','sb-mac'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('srch').value='';['ipo','rpo','wno'].forEach(id=>document.getElementById(id).checked=false);document.querySelectorAll('#sb-qf .tbtn,#sb-roles .tbtn').forEach(b=>b.classList.remove('on'));cp=1;applyF();}
 let _st;function onSrch(v){clearTimeout(_st);_st=setTimeout(()=>{sTm=v.trim().toLowerCase();cp=1;applyF();},120);}
-function applyF(){const ipO=document.getElementById('ipo').checked,rO=document.getElementById('rpo').checked,wO=document.getElementById('wno').checked,haSb=Object.values(sbV).some(v=>v);filt=cD.filter(r=>{const d=r.d;if(rFR&&d[2]!==rFR)return false;if(ipO&&!d[7])return false;if(rO&&d[9].toUpperCase()!=='YES')return false;if(wO&&!d[11])return false;if(_qff&&!_qff(r))return false;if(haSb){if(sbV.site&&(d[5]||'').toString().trim()!==sbV.site.trim())return false;if(sbV.hostname&&!(d[0]||'').toLowerCase().includes(sbV.hostname))return false;if(sbV.serial&&!(d[1]||'').toLowerCase().includes(sbV.serial))return false;if(sbV.model&&!(d[3]||'').toLowerCase().includes(sbV.model))return false;if(sbV.newmodel&&!(d[4]||'').toLowerCase().includes(sbV.newmodel))return false;if(sbV.address&&!(d[6]||'').toLowerCase().includes(sbV.address))return false;if(sbV.ip&&!(d[7]||'').toLowerCase().includes(sbV.ip))return false;if(sbV.mac&&!(d[8]||'').toLowerCase().includes(sbV.mac))return false;}if(sTm)return(d[0]||'').toLowerCase().includes(sTm)||(d[1]||'').toLowerCase().includes(sTm)||(d[3]||'').toLowerCase().includes(sTm)||(d[4]||'').toLowerCase().includes(sTm)||(d[5]||'').toString().toLowerCase().includes(sTm)||(d[6]||'').toLowerCase().includes(sTm)||(d[7]||'').toLowerCase().includes(sTm)||(d[8]||'').toLowerCase().includes(sTm);return true;});if(sC>=0){const vis=cOrd.filter(id=>cVis[id]);const def=COLS.find(c=>c[0]===vis[sC]);const fi=def?def[2]:sC;filt=[...filt].sort((a,b)=>{const av=(a.d[fi]||'').toString().toLowerCase(),bv=(b.d[fi]||'').toString().toLowerCase();return av<bv?-sD:av>bv?sD:0;});}tp=Math.max(1,Math.ceil(filt.length/ps));if(cp>tp)cp=tp;document.getElementById('rc').textContent=filt.length.toLocaleString()+' records';rndr();rndrPg();}
+function applyF(){const ipO=document.getElementById('ipo').checked,rO=document.getElementById('rpo').checked,wO=document.getElementById('wno').checked,haSb=Object.values(sbV).some(v=>v);filt=cD.filter(r=>{const d=r.d;if(rFR&&d[2]!==rFR)return false;if(ipO&&!d[7])return false;if(rO&&(d[9]||'').toUpperCase()!=='YES')return false;if(wO&&!d[11])return false;if(_qff&&!_qff(r))return false;if(haSb){if(sbV.site&&(d[5]||'').toString().trim()!==sbV.site.trim())return false;if(sbV.hostname&&!(d[0]||'').toLowerCase().includes(sbV.hostname))return false;if(sbV.serial&&!(d[1]||'').toLowerCase().includes(sbV.serial))return false;if(sbV.model&&!(d[3]||'').toLowerCase().includes(sbV.model))return false;if(sbV.newmodel&&!(d[4]||'').toLowerCase().includes(sbV.newmodel))return false;if(sbV.address&&!(d[6]||'').toLowerCase().includes(sbV.address))return false;if(sbV.ip&&!(d[7]||'').toLowerCase().includes(sbV.ip))return false;if(sbV.mac&&!(d[8]||'').toLowerCase().includes(sbV.mac))return false;}if(sTm)return(d[0]||'').toLowerCase().includes(sTm)||(d[1]||'').toLowerCase().includes(sTm)||(d[3]||'').toLowerCase().includes(sTm)||(d[4]||'').toLowerCase().includes(sTm)||(d[5]||'').toString().toLowerCase().includes(sTm)||(d[6]||'').toLowerCase().includes(sTm)||(d[7]||'').toLowerCase().includes(sTm)||(d[8]||'').toLowerCase().includes(sTm);return true;});if(sC>=0){const vis=cOrd.filter(id=>cVis[id]);const def=COLS.find(c=>c[0]===vis[sC]);const fi=def?def[2]:sC;filt=[...filt].sort((a,b)=>{const av=(a.d[fi]||'').toString().toLowerCase(),bv=(b.d[fi]||'').toString().toLowerCase();return av<bv?-sD:av>bv?sD:0;});}tp=Math.max(1,Math.ceil(filt.length/ps));if(cp>tp)cp=tp;document.getElementById('rc').textContent=filt.length.toLocaleString()+' records';rndr();rndrPg();}
 let dS=null;
 function rebH(){const hr=document.getElementById('hr');hr.innerHTML='';const vis=cOrd.filter(id=>cVis[id]);vis.forEach((cid,ci)=>{const def=COLS.find(c=>c[0]===cid);if(!def)return;const th=document.createElement('th');th.className='sr';th.style.width=cW[cid]+'px';th.style.minWidth='40px';th.style.position='relative';th.draggable=true;th.dataset.ci=ci;th.dataset.cid=cid;
 // Column label + reorder handle
@@ -1915,7 +1921,7 @@ function rndr(){const tb=document.getElementById('tb');const start=(cp-1)*ps;con
 function rndrPg(){const p=cp,t=tp;['pgf','pgp'].forEach(id=>document.getElementById(id).disabled=p<=1);['pgn','pgl'].forEach(id=>document.getElementById(id).disabled=p>=t);document.getElementById('pi').textContent=`Page ${p}/${t} · ${((p-1)*ps+1).toLocaleString()}–${Math.min(p*ps,filt.length).toLocaleString()} of ${filt.length.toLocaleString()}`;const c=document.getElementById('pgs');c.innerHTML='';const pgs=t<=7?Array.from({length:t},(_,i)=>i+1):[1,...(p>3?['...']:[]),...Array.from({length:3},(_,i)=>Math.max(2,p-1)+i).filter(x=>x>=2&&x<=t-1),...(p<t-2?['...']:[]),t];pgs.forEach(pg=>{if(pg==='...'){const s=document.createElement('span');s.textContent='…';s.style.cssText='color:var(--dim);padding:0 3px;font-family:DM Mono,monospace;font-size:10px;';c.appendChild(s);}else{const b=document.createElement('button');b.className='pb'+(pg===p?' cur':'');b.textContent=pg;b.onclick=()=>goPg(pg);c.appendChild(b);}});}
 function goPg(p){cp=Math.max(1,Math.min(tp,p));rndr();rndrPg();document.getElementById('ta').scrollTop=0;}
 function chPS(v){ps=parseInt(v);cp=1;applyF();}
-function shDet(idx){const rec=filt[idx];if(!rec)return;const d=rec.d,isWM=rec.brand==='wm';document.getElementById('dc').innerHTML=`${d[11]?`<div class="wb">⚠️ ${h(d[11])}</div>`:''}
+function shDet(idx){const rec=filt[idx];if(!rec)return;const d=rec.d,isWM=rec.brand==='walmart';document.getElementById('dc').innerHTML=`${d[11]?`<div class="wb">⚠️ ${h(d[11])}</div>`:''}
 <div class="dbr ${isWM?'wm':'sc'}">${isWM?'WAL-MART':"SAM'S CLUB"}</div>
 <div class="dnm">${h(d[0])||'Unknown Device'}</div>
 <div class="dsec"><div class="dst">Network</div>
@@ -1929,7 +1935,7 @@ ${d[8]?`<div class="dr"><span class="dl">MAC</span><div style="text-align:right"
 <div class="dsec"><div class="dst">Hardware</div>
 <div class="dr"><span class="dl">Current Model</span><div class="dv m">${h(d[3])||'—'}</div></div>
 <div class="dr"><span class="dl">New Model</span><div class="dv m">${h(d[4])||'—'}</div></div>
-<div class="dr"><span class="dl">Replace</span><div class="dv ${d[9].toUpperCase()==='YES'?'':'g'}">${h(d[9])||'—'}</div></div></div>
+<div class="dr"><span class="dl">Replace</span><div class="dv ${(d[9]||'').toUpperCase()==='YES'?'':'g'}">${h(d[9])||'—'}</div></div></div>
 <div class="dsec"><div class="dst">Location</div>
 <div class="dr"><span class="dl">Site #</span><div style="text-align:right"><div class="dv a">${h(d[5])||'—'}</div><button class="cpb" onclick="cp2('${d[5]}',this)">📋</button></div></div>
 <div class="dr" style="align-items:flex-start;"><span class="dl">Address</span><div class="dv m" style="font-size:10px;line-height:1.5;white-space:normal;">${h(d[6])||'—'}</div></div></div>`;document.getElementById('dp').classList.add('on');}
@@ -1945,7 +1951,7 @@ function admBR(){const cn={};aD.forEach(r=>{const role=r.d[2]||'Unknown';cn[role
 function admF(){const sv=(document.getElementById('a-site').value||'').trim().toLowerCase();const sv2=(document.getElementById('a-srch').value||'').trim().toLowerCase();aFilt=aD.filter(r=>{const d=r.d;if(aRF&&d[2]!==aRF)return false;if(sv&&(d[5]||'').toString().trim()!==sv.trim())return false;if(sv2)return(d[0]||'').toLowerCase().includes(sv2)||(d[1]||'').toLowerCase().includes(sv2)||(d[7]||'').toLowerCase().includes(sv2)||(d[6]||'').toLowerCase().includes(sv2);return true;});if(aSC>=0){const fi=[0,1,2,3,4,5,6,7,8,9,10,11][aSC];aFilt=[...aFilt].sort((a,b)=>{const av=(a.d[fi]||'').toString().toLowerCase(),bv=(b.d[fi]||'').toString().toLowerCase();return av<bv?-aSD:av>bv?aSD:0;});}atp=Math.max(1,Math.ceil(aFilt.length/aps));if(acp>atp)acp=atp;document.getElementById('arc').textContent=aFilt.length.toLocaleString()+' records';document.getElementById('afcnt').textContent=aFilt.length.toLocaleString();updSelUI();admR();admPg();}
 function admClr(){aRF='';document.getElementById('a-site').value='';document.getElementById('a-srch').value='';document.querySelectorAll('#a-roles .tbtn').forEach(b=>b.classList.remove('on'));acp=1;admF();}
 function admSrt(c){if(aSC===c)aSD*=-1;else{aSC=c;aSD=1;}admF();}
-function admR(){const tb=document.getElementById('atb');const start=(acp-1)*aps;const slice=aFilt.slice(start,start+aps);if(!slice.length){tb.innerHTML='';document.getElementById('aes').style.display='flex';return;}document.getElementById('aes').style.display='none';tb.innerHTML=slice.map(rec=>{const d=rec.d,id=rec.id,br=rec.brand,hw=!!d[11];const isT=d[10]==='TC-Refresh'||d[10]==='TC-Misty';const rb=d[9].toUpperCase()==='YES'?'<span class="bdg by">YES</span>':d[9].toUpperCase()==='NO'?'<span class="bdg bn">NO</span>':`<span style="color:var(--dim);font-size:9px">${h(d[9])||'—'}</span>`;const sel=selIds.has(br+'_'+id);return`<tr class="${hw?'wr':''} ${sel?'sel':''}" id="ar-${br}-${id}"><td style="width:30px;"><input type="checkbox" ${sel?'checked':''} style="accent-color:var(--acc);" onchange="admTR('${br}','${id}',this.checked)"></td><td style="width:135px;" class="mn" title="${h(d[0])}">${h(d[0])||'—'}</td><td style="width:88px;" class="mn">${h(d[1])||'—'}</td><td style="width:75px;"><span class="bdg" style="background:rgba(88,166,255,.12);color:#79c0ff;border:1px solid rgba(88,166,255,.2);">${h(d[2])||'—'}</span></td><td style="width:50px;" class="mn">${h(d[5])||'—'}</td><td style="width:220px;" class="ad" title="${h(d[6])}">${h(d[6])||'—'}</td><td style="width:112px;" class="${d[7]?'ipc':'ipc mt'}">${h(d[7])||'—'}</td><td style="width:118px;" class="mn" style="font-size:10px;">${h(d[8])||'—'}</td><td style="width:60px;">${rb}</td><td style="width:63px;">${isT?'<span class="bdg btc">TC</span>':`<span class="bdg bs">${h((d[10]||'').replace('PC-',''))}</span>`}</td><td style="width:155px;">${d[11]?`<span style="font-size:10px;color:var(--yel);" title="${h(d[11])}">⚠️ PRINTER COUNT UNVERIFIED</span>`:'<span style="color:var(--dim);font-size:10px;">—</span>'}</td><td style="width:50px;"><button class="tbtn danger" style="padding:2px 6px;font-size:10px;" onclick="admD1('${br}','${id}')">🗑</button></td></tr>`;}).join('');}
+function admR(){const tb=document.getElementById('atb');const start=(acp-1)*aps;const slice=aFilt.slice(start,start+aps);if(!slice.length){tb.innerHTML='';document.getElementById('aes').style.display='flex';return;}document.getElementById('aes').style.display='none';tb.innerHTML=slice.map(rec=>{const d=rec.d,id=rec.id,br=rec.brand,hw=!!d[11];const isT=d[10]==='TC-Refresh'||d[10]==='TC-Misty';const rb=(d[9]||'').toUpperCase()==='YES'?'<span class="bdg by">YES</span>':(d[9]||'').toUpperCase()==='NO'?'<span class="bdg bn">NO</span>':`<span style="color:var(--dim);font-size:9px">${h(d[9])||'—'}</span>`;const sel=selIds.has(br+'_'+id);return`<tr class="${hw?'wr':''} ${sel?'sel':''}" id="ar-${br}-${id}"><td style="width:30px;"><input type="checkbox" ${sel?'checked':''} style="accent-color:var(--acc);" onchange="admTR('${br}','${id}',this.checked)"></td><td style="width:135px;" class="mn" title="${h(d[0])}">${h(d[0])||'—'}</td><td style="width:88px;" class="mn">${h(d[1])||'—'}</td><td style="width:75px;"><span class="bdg" style="background:rgba(88,166,255,.12);color:#79c0ff;border:1px solid rgba(88,166,255,.2);">${h(d[2])||'—'}</span></td><td style="width:50px;" class="mn">${h(d[5])||'—'}</td><td style="width:220px;" class="ad" title="${h(d[6])}">${h(d[6])||'—'}</td><td style="width:112px;" class="${d[7]?'ipc':'ipc mt'}">${h(d[7])||'—'}</td><td style="width:118px;" class="mn" style="font-size:10px;">${h(d[8])||'—'}</td><td style="width:60px;">${rb}</td><td style="width:63px;">${isT?'<span class="bdg btc">TC</span>':`<span class="bdg bs">${h((d[10]||'').replace('PC-',''))}</span>`}</td><td style="width:155px;">${d[11]?`<span style="font-size:10px;color:var(--yel);" title="${h(d[11])}">⚠️ PRINTER COUNT UNVERIFIED</span>`:'<span style="color:var(--dim);font-size:10px;">—</span>'}</td><td style="width:50px;"><button class="tbtn danger" style="padding:2px 6px;font-size:10px;" onclick="admD1('${br}','${id}')">🗑</button></td></tr>`;}).join('');}
 function admTR(br,id,chk){const k=br+'_'+id;if(chk)selIds.add(k);else selIds.delete(k);const row=document.querySelector(`#ar-${br}-${id}`);if(row)row.classList.toggle('sel',chk);updSelUI();}
 function admTA(chk){const start=(acp-1)*aps;aFilt.slice(start,start+aps).forEach(r=>{const k=r.brand+'_'+r.id;if(chk)selIds.add(k);else selIds.delete(k);});admR();updSelUI();}
 function admSAll(){aFilt.forEach(r=>selIds.add(r.brand+'_'+r.id));admR();updSelUI();}
@@ -1954,8 +1960,8 @@ function updSelUI(){const cnt=selIds.size,s=document.getElementById('asc2'),d=do
 function admD1(br,id){showMod('Delete 1 record?','Remove this record from the '+br+' dataset.',()=>_doDel([br+'_'+parseInt(id)]));}
 function admDS(){const cnt=selIds.size;if(!cnt)return;showMod(`Delete ${cnt.toLocaleString()} records?`,`Remove ${cnt.toLocaleString()} selected records this session.`,()=>_doDel([...selIds]));}
 function admDF(){const cnt=aFilt.length;if(!cnt)return;showMod(`Delete ${cnt.toLocaleString()} filtered records?`,'Remove ALL filtered records. Cannot undo without reload.',()=>_doDel(aFilt.map(r=>r.brand+'_'+r.id)));}
-function admDA(){const br=aBr,cnt=(br==='walmart'?WM:SC).length;showMod(`Delete ALL ${br} data?`,`Removes ALL ${cnt.toLocaleString()} records. Cannot undo without reload.`,()=>{if(br==='walmart')WM=[];else SC=[];selIds.clear();if(cBr===br){cD=br==='walmart'?WM:SC;applyF();}aD=br==='walmart'?WM:SC;admBR();admF();updStats();});}
-function _doDel(ids){const s=new Set(ids);WM=WM.filter(r=>!s.has('wm_'+r.id));SC=SC.filter(r=>!s.has('sc_'+r.id));selIds.clear();if(cBr==='walmart')cD=WM;else cD=SC;aD=aBr==='walmart'?WM:SC;admBR();admF();applyF();updStats();toast('Deleted '+ids.length.toLocaleString()+' records');}
+function admDA(){const br=aBr,cnt=(br==='walmart'?WM:SC).length;showMod(`Delete ALL ${br} data?`,`Removes ALL ${cnt.toLocaleString()} records. Cannot undo without reload.`,async()=>{toast('Deleting...');try{const resp=await fetch(`${SUPA_URL}/devices?brand=eq.${br==='walmart'?'walmart':'sams'}`,{method:'DELETE',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});if(!resp.ok)throw new Error(`HTTP ${resp.status}`);}catch(err){toast('Delete failed: '+err.message);return;}if(br==='walmart')WM=[];else SC=[];selIds.clear();if(cBr===br){cD=br==='walmart'?WM:SC;applyF();}aD=br==='walmart'?WM:SC;admBR();admF();updStats();toast('Deleted all '+br+' records');});}
+async function _doDel(ids){const numericIds=ids.map(x=>parseInt(x.split('_')[1])).filter(n=>!isNaN(n));if(!numericIds.length)return;toast('Deleting...');try{const url=`${SUPA_URL}/devices?id=in.(${numericIds.join(',')})`;const resp=await fetch(url,{method:'DELETE',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});if(!resp.ok)throw new Error(`HTTP ${resp.status}`);}catch(err){toast('Delete failed: '+err.message);return;}const s=new Set(ids);WM=WM.filter(r=>!s.has('walmart_'+r.id));SC=SC.filter(r=>!s.has('sams_'+r.id));selIds.clear();if(cBr==='walmart')cD=WM;else cD=SC;aD=aBr==='walmart'?WM:SC;admBR();admF();applyF();updStats();toast('Deleted '+ids.length.toLocaleString()+' records');}
 function updStats(){document.getElementById('swm').textContent=WM.length.toLocaleString();document.getElementById('ssc').textContent=SC.length.toLocaleString();document.getElementById('stot').textContent=(WM.length+SC.length).toLocaleString();}
 function admGP(p){acp=Math.max(1,Math.min(atp,p));admR();admPg();document.getElementById('ata').scrollTop=0;}
 function admCP(v){aps=parseInt(v);acp=1;admF();}
@@ -2462,37 +2468,71 @@ function _buildImpMapper(fname, sheetName) {
   document.getElementById('imp-error').style.color = 'var(--mut)';
 }
 
-function confirmImport() {
-  const brand = document.getElementById('imp-brand').value; // 'wm' or 'sc'
-  let imported = 0;
-  const maxId = brand === 'wm' ? WM.length : SC.length;
+async function confirmImport() {
+  const brandSel = document.getElementById('imp-brand').value; // 'wm' or 'sc'
+  const brand = brandSel === 'wm' ? 'walmart' : 'sams';
 
-  _impRows.forEach((row, idx) => {
-    // Build the d array matching the COLS field indices
+  const payloads = [];
+  const sourceVals = [];
+  _impRows.forEach((row) => {
     const d = new Array(12).fill('');
     IMP_FIELDS.forEach(f => {
       const sel = document.getElementById('imp-map-' + f.key);
       const col = sel ? sel.value : '';
       if (col && row[col] !== undefined) d[f.fi] = String(row[col] || '');
     });
-
-    // Skip completely blank rows (no hostname and no serial)
-    if (!d[0] && !d[1]) return;
-
-    const rec = { d, id: maxId + idx, brand };
-    if (brand === 'wm') WM.push(rec);
-    else SC.push(rec);
-    imported++;
+    if (!d[0] && !d[1]) return; // skip blank rows
+    const sourceVal = d[10] || '';
+    const isTC = sourceVal === 'TC-Refresh' || sourceVal === 'TC-Misty';
+    payloads.push({
+      hostname: d[0] || null, serial: d[1] || null, role: d[2] || null,
+      cur_model: d[3] || null, new_model: d[4] || null, site: d[5] || null,
+      address: d[6] || null, ip: d[7] || null, mac: d[8] || null,
+      replace: d[9] || null, brand: brand,
+      device_cat: isTC ? 'Thin Client' : 'PC', sheet_tab: 'Imported'
+    });
+    sourceVals.push(sourceVal);
   });
 
-  if (!imported) { document.getElementById('imp-error').textContent = 'No valid rows imported (all were blank).'; document.getElementById('imp-error').style.color = 'var(--red)'; return; }
+  if (!payloads.length) { document.getElementById('imp-error').textContent = 'No valid rows imported (all were blank).'; document.getElementById('imp-error').style.color = 'var(--red)'; return; }
+
+  document.getElementById('imp-error').textContent = 'Saving ' + payloads.length.toLocaleString() + ' rows to Supabase...';
+  document.getElementById('imp-error').style.color = 'var(--mut)';
+
+  let imported = 0;
+  try {
+    // Insert in chunks of 500 to stay within reasonable request size
+    const CHUNK = 500;
+    for (let i = 0; i < payloads.length; i += CHUNK) {
+      const chunk = payloads.slice(i, i + CHUNK);
+      const resp = await fetch(`${SUPA_URL}/devices`, {
+        method: 'POST',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify(chunk)
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const saved = await resp.json();
+      saved.forEach((s, j) => {
+        const sourceVal = sourceVals[i + j];
+        const arr = [s.hostname, s.serial, s.role, s.cur_model, s.new_model, s.site, s.address, s.ip, s.mac, s.replace, sourceVal, null, s.city, s.state, s.zip, s.sheet_tab];
+        const rec = { d: arr, id: s.id, brand: brand };
+        if (brand === 'walmart') WM.push(rec); else SC.push(rec);
+        imported++;
+      });
+    }
+  } catch (err) {
+    document.getElementById('imp-error').textContent = 'Import failed: ' + err.message + ` (${imported.toLocaleString()} rows saved before error)`;
+    document.getElementById('imp-error').style.color = 'var(--red)';
+    if (imported) { updStats(); if (cBr === brand) { cD = brand === 'walmart' ? WM : SC; applyF(); } }
+    return;
+  }
 
   // Refresh everything
-  if (cBr === (brand === 'wm' ? 'walmart' : 'sams')) { cD = brand === 'wm' ? WM : SC; applyF(); }
+  if (cBr === brand) { cD = brand === 'walmart' ? WM : SC; applyF(); }
   updStats();
-  admSW(brand === 'wm' ? 'walmart' : 'sams', document.getElementById(brand === 'wm' ? 'awm' : 'asc_'));
+  admSW(brand, document.getElementById(brand === 'walmart' ? 'awm' : 'asc_'));
   closeImportModal();
-  toast('Imported ' + imported.toLocaleString() + ' rows into ' + (brand==='wm'?'Wal-Mart':"Sam's Club") + ' dataset');
+  toast('Imported ' + imported.toLocaleString() + ' rows into ' + (brand==='walmart'?'Wal-Mart':"Sam's Club") + ' dataset');
 }
 </script>
 
@@ -2969,30 +3009,56 @@ function closeAddRowModal() {
   var m = document.getElementById('at-add-modal');
   if (m) m.style.display = 'none';
 }
-function submitAddRow() {
-  var brand = document.getElementById('ar-brand').value || 'wm';
-  var newRow = [
-    document.getElementById('ar-hostname').value || '',
-    document.getElementById('ar-serial').value   || '',
-    document.getElementById('ar-role').value     || '',
-    document.getElementById('ar-curM').value     || '',
-    document.getElementById('ar-newM').value     || '',
-    document.getElementById('ar-site').value     || '',
-    document.getElementById('ar-address').value  || '',
-    document.getElementById('ar-ip').value       || '',
-    document.getElementById('ar-mac').value      || '',
-    document.getElementById('ar-replace').value  || 'NO',
-    document.getElementById('ar-source').value   || '',
-    ''
-  ];
-  if (!newRow[0]) { toast('Hostname is required'); return; }
-  var arr   = brand === 'wm' ? WM : SC;
-  var newId = arr.length > 0 ? arr[arr.length - 1].id + 1 : 0;
-  if (brand === 'wm') WM.push({ d: newRow, id: newId, brand: 'wm' });
-  else                SC.push({ d: newRow, id: newId, brand: 'sc' });
-  closeAddRowModal();
-  toast('Row added ✓');
-  if (typeof admF === 'function') admF();
+async function submitAddRow() {
+  var brandSel = document.getElementById('ar-brand').value || 'walmart';
+  var brand = (brandSel === 'wm' || brandSel === 'walmart') ? 'walmart' : 'sams';
+  var hostname = document.getElementById('ar-hostname').value || '';
+  if (!hostname) { toast('Hostname is required'); return; }
+  var sourceVal = document.getElementById('ar-source').value || '';
+  var isTC = sourceVal === 'TC-Refresh' || sourceVal === 'TC-Misty';
+
+  var payload = {
+    hostname: hostname,
+    serial: document.getElementById('ar-serial').value || null,
+    role: document.getElementById('ar-role').value || null,
+    cur_model: document.getElementById('ar-curM').value || null,
+    new_model: document.getElementById('ar-newM').value || null,
+    site: document.getElementById('ar-site').value || null,
+    address: document.getElementById('ar-address').value || null,
+    ip: document.getElementById('ar-ip').value || null,
+    mac: document.getElementById('ar-mac').value || null,
+    replace: document.getElementById('ar-replace').value || 'NO',
+    brand: brand,
+    device_cat: isTC ? 'Thin Client' : 'PC',
+    sheet_tab: 'Manual Add'
+  };
+
+  toast('Saving...');
+  try {
+    var resp = await fetch(`${SUPA_URL}/devices`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    var saved = (await resp.json())[0];
+
+    var newRow = [saved.hostname, saved.serial, saved.role, saved.cur_model, saved.new_model, saved.site, saved.address, saved.ip, saved.mac, saved.replace, sourceVal, null, saved.city, saved.state, saved.zip, saved.sheet_tab];
+    var rec = { d: newRow, id: saved.id, brand: brand };
+    if (brand === 'walmart') WM.push(rec); else SC.push(rec);
+
+    closeAddRowModal();
+    toast('Row added ✓');
+    if (typeof admF === 'function') admF();
+    updStats();
+  } catch (err) {
+    toast('Save failed: ' + err.message);
+  }
 }
 
 /* ── Add Column modal ────────────────────────────────────────────────── */
@@ -3115,7 +3181,7 @@ function _addRefTabButton(tabId, label, tabIdx) {
   const btn = document.createElement('button');
   btn.className = 'tbtn';
   btn.id = 'rtdyn_' + tabId;
-  btn.innerHTML = '📋 ' + label + ' <span onclick="event.stopPropagation();removeRefTab('' + tabId + '')" style="margin-left:4px;opacity:.6;font-size:11px;">✕</span>';
+  btn.innerHTML = '📋 ' + label + ' <span onclick="event.stopPropagation();removeRefTab(&apos;' + tabId + '&apos;)" style="margin-left:4px;opacity:.6;font-size:11px;">✕</span>';
   btn.onclick = () => showRefTab(tabId);
   dynTabs.appendChild(btn);
 }
