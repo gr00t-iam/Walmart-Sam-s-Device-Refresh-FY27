@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device Lookup — FY27 Refresh</title>
+<style>
+  :root{
+    --bg:#0b0d10; --surf:#13161b; --surf2:#1a1e25; --brd:#262b33;
+    --txt:#e6e9ee; --mut:#8b93a1; --dim:#5a6270;
+    --wm:#0071ce; --sc:#82c341;
+    --acc:#4fc3ff; --yel:#e8b339; --red:#e5534b; --grn:#3fb950;
+    --mono:'DM Mono','SF Mono',Consolas,monospace;
+    --sans:'Inter',-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh;}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:8px;}
+  h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-0.01em;}
+  h1 span{color:var(--acc);}
+  .sub{font-size:12px;color:var(--dim);font-family:var(--mono);}
+
+  .searchbar{position:relative;margin-bottom:14px;}
+  .searchbar input{
+    width:100%;padding:15px 44px 15px 16px;font-size:16px;font-family:var(--mono);
+    background:var(--surf);border:1px solid var(--brd);border-radius:10px;color:var(--txt);
+    outline:none;transition:border-color .15s;
+  }
+  .searchbar input:focus{border-color:var(--acc);}
+  .searchbar .ic{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:14px;pointer-events:none;}
+  .hint{font-size:11px;color:var(--dim);margin-bottom:18px;line-height:1.5;}
+  .hint b{color:var(--mut);font-weight:600;}
+
+  .filters{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+  .fbtn{padding:6px 12px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid var(--brd);background:var(--surf);color:var(--mut);cursor:pointer;transition:.12s;}
+  .fbtn:hover{border-color:var(--dim);color:var(--txt);}
+  .fbtn.on{background:var(--acc);border-color:var(--acc);color:#06121a;}
+
+  #status{font-size:12px;color:var(--dim);font-family:var(--mono);margin-bottom:10px;min-height:16px;}
+  #status.err{color:var(--red);}
+
+  .grp{margin-bottom:20px;}
+  .grp-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surf2);border-radius:8px 8px 0 0;border:1px solid var(--brd);border-bottom:none;}
+  .grp-h .site{font-family:var(--mono);font-weight:700;font-size:13px;}
+  .grp-h .addr{font-size:11px;color:var(--mut);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .grp-h .cnt{font-size:10px;color:var(--dim);font-family:var(--mono);}
+
+  .cards{border:1px solid var(--brd);border-radius:0 0 8px 8px;overflow:hidden;}
+  .card{display:grid;grid-template-columns:1fr auto;gap:4px 14px;padding:11px 14px;border-top:1px solid var(--brd);background:var(--surf);}
+  .card:first-child{border-top:none;}
+  .card:hover{background:var(--surf2);}
+  .c-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .c-host{font-family:var(--mono);font-weight:600;font-size:13px;}
+  .badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.02em;text-transform:uppercase;}
+  .b-wm{background:rgba(0,113,206,.15);color:#5db8f5;border:1px solid rgba(0,113,206,.3);}
+  .b-sc{background:rgba(130,195,65,.15);color:#9bd96a;border:1px solid rgba(130,195,65,.3);}
+  .b-tc{background:rgba(232,179,57,.13);color:var(--yel);border:1px solid rgba(232,179,57,.25);}
+  .b-pc{background:rgba(143,153,168,.13);color:var(--mut);border:1px solid var(--brd);}
+  .b-rep{background:rgba(229,83,75,.13);color:#f08882;border:1px solid rgba(229,83,75,.25);}
+  .c-sub{font-size:11px;color:var(--dim);font-family:var(--mono);}
+  .c-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;text-align:right;}
+  .c-ip{font-family:var(--mono);font-size:12px;color:var(--acc);}
+  .c-ip.none{color:var(--dim);}
+  .copybtn{font-size:9px;background:none;border:1px solid var(--brd);color:var(--dim);border-radius:4px;padding:2px 6px;cursor:pointer;}
+  .copybtn:hover{border-color:var(--acc);color:var(--acc);}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--dim);}
+  .empty b{display:block;font-size:14px;color:var(--mut);margin-bottom:6px;}
+  .empty p{font-size:12px;margin:0;line-height:1.6;}
+
+  .loadbar{display:flex;align-items:center;gap:10px;padding:40px 0;justify-content:center;color:var(--dim);font-family:var(--mono);font-size:12px;}
+  .spin{width:14px;height:14px;border:2px solid var(--brd);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surf2);border:1px solid var(--brd);color:var(--txt);padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:50;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  footer{margin-top:36px;text-align:center;font-size:10.5px;color:var(--dim);font-family:var(--mono);}
+
+  @media(max-width:560px){
+    .card{grid-template-columns:1fr;}
+    .c-meta{align-items:flex-start;text-align:left;flex-direction:row;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Device <span>Lookup</span></h1>
+    <div class="sub">FY27 Refresh · live data</div>
+  </header>
+
+  <div class="searchbar">
+    <input id="q" type="text" placeholder="Site number, hostname, serial, or IP address…" autocomplete="off" autofocus>
+    <span class="ic">⏎</span>
+  </div>
+  <div class="hint"><b>Tip:</b> search a site number (e.g. <b>4456</b> or <b>S04456</b>) to see every device at that location, or search a hostname/serial/IP directly.</div>
+
+  <div class="filters">
+    <button class="fbtn on" data-f="all">All</button>
+    <button class="fbtn" data-f="walmart">Wal-Mart</button>
+    <button class="fbtn" data-f="sams">Sam's Club</button>
+    <button class="fbtn" data-f="PC">PCs</button>
+    <button class="fbtn" data-f="Thin Client">Thin Clients</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+  <footer>Device Refresh FY27 · queries Supabase directly · <span id="rowcount"></span></footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://kkiafzthropihnvmhixr.supabase.co/rest/v1';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtraWFmenRocm9waWhudm1oaXhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MDg1NTksImV4cCI6MjA5NjE4NDU1OX0.UH1svtwFQhF392JJnLb6gzyP8sbEWF2L8xUolexQZtU';
+
+const els = {
+  q: document.getElementById('q'),
+  status: document.getElementById('status'),
+  results: document.getElementById('results'),
+  rowcount: document.getElementById('rowcount'),
+  toast: document.getElementById('toast'),
+};
+
+let activeFilter = 'all';
+let lastQuery = '';
+let debounceT = null;
+let reqSeq = 0; // guards against out-of-order async responses
+
+document.querySelectorAll('.fbtn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    activeFilter = b.dataset.f;
+    if(lastQuery) runSearch(lastQuery);
+  });
+});
+
+function normSite(v){
+  return (v||'').toString().trim().toUpperCase().replace(/[^0-9A-Z]/g,'');
+}
+
+function toast(msg){
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>els.toast.classList.remove('show'), 1600);
+}
+function copyTxt(v, label){
+  navigator.clipboard.writeText(v).then(()=>toast('Copied '+label));
+}
+
+els.q.addEventListener('input', (e)=>{
+  const v = e.target.value;
+  clearTimeout(debounceT);
+  debounceT = setTimeout(()=>runSearch(v), 220);
+});
+els.q.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ clearTimeout(debounceT); runSearch(els.q.value); }
+});
+
+function buildFilterParam(){
+  if(activeFilter === 'walmart' || activeFilter === 'sams') return `brand=eq.${activeFilter}`;
+  if(activeFilter === 'PC' || activeFilter === 'Thin Client') return `device_cat=eq.${encodeURIComponent(activeFilter)}`;
+  return '';
+}
+
+async function runSearch(raw){
+  const term = (raw||'').trim();
+  lastQuery = term;
+  if(!term){
+    els.results.innerHTML = '';
+    els.status.textContent = '';
+    els.rowcount.textContent = '';
+    return;
+  }
+
+  const seq = ++reqSeq;
+  els.status.className = '';
+  els.status.textContent = 'Searching…';
+  els.results.innerHTML = `<div class="loadbar"><div class="spin"></div> Querying device records…</div>`;
+
+  try {
+    const siteNorm = normSite(term);
+    const esc = term.replace(/[%,()]/g, c => '\\' + c);
+
+    // Try a site-number exact match first (numbers, or S-prefixed site codes)
+    const looksLikeSite = /^[0-9]{1,5}$/.test(siteNorm) || /^S[0-9]{1,6}$/i.test(term.trim());
+
+    let url;
+    const fp = buildFilterParam();
+    const fpClause = fp ? `&${fp}` : '';
+
+    if (looksLikeSite) {
+      url = `${SUPA_URL}/devices?or=(site.eq.${siteNorm},site.eq.${term.trim()})${fpClause}&select=*&order=hostname&limit=500`;
+    } else {
+      url = `${SUPA_URL}/devices?or=(hostname.ilike.*${esc}*,serial.ilike.*${esc}*,ip.ilike.*${esc}*,mac.ilike.*${esc}*,site.ilike.*${esc}*)${fpClause}&select=*&order=site,hostname&limit=500`;
+    }
+
+    const resp = await fetch(url, { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } });
+    if (seq !== reqSeq) return; // a newer search superseded this one
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = await resp.json();
+    render(rows, term);
+  } catch (err) {
+    if (seq !== reqSeq) return;
+    els.status.className = 'err';
+    els.status.textContent = `⚠ ${err.message} — check connection and try again.`;
+    els.results.innerHTML = '';
+  }
+}
+
+function render(rows, term){
+  els.rowcount.textContent = '';
+  if(!rows.length){
+    els.status.textContent = '';
+    els.results.innerHTML = `<div class="empty"><b>No devices found</b><p>No matches for "${escapeHtml(term)}". Try a different site number, hostname, serial, or IP — or clear filters above.</p></div>`;
+    return;
+  }
+  els.status.textContent = `${rows.length.toLocaleString()} device${rows.length===1?'':'s'} found`;
+
+  // Group by site
+  const groups = new Map();
+  rows.forEach(r=>{
+    const key = r.site || '—';
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+
+  let html = '';
+  for(const [site, devices] of groups){
+    const addr = devices.find(d=>d.address)?.address || '';
+    html += `<div class="grp">
+      <div class="grp-h"><span class="site">Site ${escapeHtml(site)}</span><span class="addr">${escapeHtml(addr)}</span><span class="cnt">${devices.length} device${devices.length===1?'':'s'}</span></div>
+      <div class="cards">`;
+    devices.forEach(d=>{
+      const brandBadge = d.brand === 'sams' ? `<span class="badge b-sc">Sam's</span>` : `<span class="badge b-wm">Wal-Mart</span>`;
+      const catBadge = d.device_cat === 'Thin Client' ? `<span class="badge b-tc">TC</span>` : `<span class="badge b-pc">PC</span>`;
+      const repBadge = (d.replace||'').toUpperCase()==='YES' ? `<span class="badge b-rep">Replace</span>` : '';
+      const ip = d.ip ? `<span class="c-ip">${escapeHtml(d.ip)}</span><button class="copybtn" onclick="copyTxt('${escAttr(d.ip)}','IP')">copy</button>` : `<span class="c-ip none">no IP</span>`;
+      html += `<div class="card">
+        <div>
+          <div class="c-main">
+            <span class="c-host">${escapeHtml(d.hostname||'—')}</span>
+            ${brandBadge}${catBadge}${repBadge}
+          </div>
+          <div class="c-sub">${escapeHtml(d.role||'')||'&nbsp;'} ${d.serial?'· SN '+escapeHtml(d.serial):''} ${d.mac?'· '+escapeHtml(d.mac):''}</div>
+        </div>
+        <div class="c-meta">${ip}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+  els.results.innerHTML = html;
+}
+
+function escapeHtml(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escAttr(s){ return String(s).replace(/'/g, "\\'"); }
+</script>
+</body>
+</html>
