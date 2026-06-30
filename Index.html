@@ -151,6 +151,7 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
     <button class="hnbtn" onclick="showPg('adm',this)">⚙️ Admin Settings</button>
     <button class="hnbtn" onclick="adminLogin()" style="cursor:pointer;">🔐 Admin Login</button>
     <button class="hnbtn" onclick="showPg('ref',this)">📋 Reference</button>
+    <button class="hnbtn" onclick="showPg('route',this)">🗺 Route Schedule</button>
     <button class="hnbtn" onclick="showPg('kb',this)">📖 Knowledge Base</button>
   </div>
   <div class="hsts">
@@ -313,6 +314,61 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
       <button class="tbtn" onclick="showRefImportModal()" style="margin-left:auto;background:rgba(88,166,255,.12);color:var(--acc);border-color:rgba(88,166,255,.3);">📥 Import to Reference</button>
     </div>
     <div id="rt-content"></div>
+  </div>
+</div>
+
+
+<!-- ═══ ROUTE SCHEDULE ═══ -->
+<div id="pg-route" class="pgcol">
+  <div style="padding:20px 18px;max-width:1200px;margin:0 auto;width:100%;">
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:3px;">&#x1F5FA; Route Schedule</h2>
+    <p style="color:var(--mut);font-size:12px;margin-bottom:16px;">Deployment routes &middot; click a row to see store devices</p>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:140px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;">Route</div>
+        <div id="rs-route-filters" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+        <div style="margin-top:8px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;">Store Type</div>
+        <div id="rs-type-filters" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+      </div>
+      <div style="flex:1;min-width:220px;">
+        <input id="rs-search" type="text" placeholder="Search store #, city, state, date&#x2026;"
+          style="width:100%;padding:9px 12px;font-size:13px;font-family:var(--mono);background:var(--surf);border:1px solid var(--brd);border-radius:6px;color:var(--txt);outline:none;margin-bottom:8px;"
+          oninput="rsFilter()">
+        <div id="rs-stats" style="font-size:11px;color:var(--dim);font-family:var(--mono);"></div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:8px;background:var(--surf);">
+      <table id="rs-tbl" style="width:100%;border-collapse:collapse;min-width:900px;font-size:12px;">
+        <thead>
+          <tr style="background:var(--surf2);">
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Route</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Stop</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Store #</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Type</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">City / State</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Tentative Date</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">TC</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Slim+</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Micro</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Tower</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Printers</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Drive &rarr; Next</th>
+          </tr>
+        </thead>
+        <tbody id="rs-tbody"></tbody>
+      </table>
+    </div>
+    <div id="rs-empty" style="display:none;text-align:center;padding:40px;color:var(--dim);font-size:13px;">No stops match your filters.</div>
+
+    <div id="rs-dev-panel" style="display:none;margin-top:14px;border:1px solid var(--brd);border-radius:8px;background:var(--surf);padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div id="rs-dev-title" style="font-size:14px;font-weight:700;"></div>
+        <button onclick="rsCloseDevPanel()" style="background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px;">&times;</button>
+      </div>
+      <div id="rs-dev-body"></div>
+    </div>
   </div>
 </div>
 
@@ -1887,7 +1943,7 @@ function saveP(){try{localStorage.setItem('drdb2027',JSON.stringify({o:cOrd,v:cV
 function rstC(){cOrd=COLS.map(c=>c[0]);COLS.forEach(c=>{cVis[c[0]]=c[3];});bldCC();rebH();rndr();}
 let cBr='walmart',cD=[],filt=[],cp=1,ps=100,tp=1,sC=-1,sD=1,rFR='',sTm='',sbV={site:'',hostname:'',serial:'',model:'',newmodel:'',address:'',ip:'',mac:''},_qff=null;
 window.addEventListener('load',()=>{ldP();bldCC();});
-function showPg(n,btn){document.querySelectorAll('.pg,.pgcol').forEach(p=>{p.classList.remove('on');p.style.display='none';});document.querySelectorAll('.hnbtn').forEach(b=>b.classList.remove('on'));const pg=document.getElementById('pg-'+n);pg.style.display='flex';pg.classList.add('on');if(btn)btn.classList.add('on');if(n==='adm')admInit();if(n==='ref')initRef();}
+function showPg(n,btn){document.querySelectorAll('.pg,.pgcol').forEach(p=>{p.classList.remove('on');p.style.display='none';});document.querySelectorAll('.hnbtn').forEach(b=>b.classList.remove('on'));const pg=document.getElementById('pg-'+n);pg.style.display='flex';pg.classList.add('on');if(btn)btn.classList.add('on');if(n==='adm')admInit();if(n==='ref')initRef();if(n==='route')initRoute();}
 function swBr(br,el){cBr=br;cD=br==='walmart'?WM:SC;document.querySelectorAll('#pg-db .sbtb').forEach(b=>b.classList.remove('on'));if(el)el.classList.add('on');else document.querySelectorAll('#pg-db .sbtb').forEach(b=>{if((br==='walmart'&&b.classList.contains('wm'))||(br==='sams'&&b.classList.contains('sc')))b.classList.add('on');});rFR='';sTm='';_qff=null;Object.keys(sbV).forEach(k=>sbV[k]='');['sb-site','sb-hostname','sb-serial','sb-model','sb-newmodel','sb-address','sb-ip','sb-mac'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('srch').value='';['ipo','rpo','wno'].forEach(id=>document.getElementById(id).checked=false);cp=1;sC=-1;sD=1;bldRoles();bldQF();rebH();applyF();}
 function bldQF(){const c=document.getElementById('sb-qf');c.innerHTML='';[['Replace=YES',r=>(r.d[9]||'').toUpperCase()==='YES'],['Has IP',r=>!!r.d[7]],['PC Only',r=>r.d[10]!=='TC-Refresh'&&r.d[10]!=='TC-Misty'],['TC Only',r=>r.d[10]==='TC-Refresh'||r.d[10]==='TC-Misty'],['⚠ Flagged',r=>!!r.d[11]]].forEach(q=>{const b=document.createElement('button');b.className='tbtn';b.textContent=q[0];b.style.cssText='width:100%;text-align:left;font-size:11px;margin-bottom:2px;';b.onclick=()=>{const wa=b.classList.contains('on');document.querySelectorAll('#sb-qf .tbtn').forEach(x=>x.classList.remove('on'));if(!wa){b.classList.add('on');_qff=q[1];}else _qff=null;cp=1;applyF();};c.appendChild(b);});}
 function bldRoles(){const cn={};cD.forEach(r=>{const role=r.d[2]||'Unknown';cn[role]=(cn[role]||0)+1;});const c=document.getElementById('sb-roles');c.innerHTML='';Object.entries(cn).sort((a,b)=>b[1]-a[1]).forEach(([role,cnt])=>{const b=document.createElement('button');b.className='tbtn';b.innerHTML=`<span style="flex:1;text-align:left;font-size:11px;">${role}</span><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--dim);">${cnt.toLocaleString()}</span>`;b.style.cssText='width:100%;display:flex;align-items:center;border-radius:3px;margin-bottom:1px;';b.onclick=()=>{if(rFR===role){rFR='';b.classList.remove('on');}else{rFR=role;document.querySelectorAll('#sb-roles .tbtn').forEach(x=>x.classList.remove('on'));b.classList.add('on');}cp=1;applyF();};c.appendChild(b);});}
@@ -3378,6 +3434,186 @@ window.addEventListener("load", function() {
     if (typeof admRebH === "function") admRebH();
   }, 300);
 }, { once: true });
+
+/* ═══════════════════════════════════════════════════════════════
+ *  ROUTE SCHEDULE PAGE
+ * ═══════════════════════════════════════════════════════════════ */
+var rsData = [], rsFilt = [], rsActiveRoute = 'all', rsActiveType = 'all';
+
+function initRoute() {
+  if (rsData.length) { rsRender(); return; }
+  document.getElementById('rs-stats').textContent = 'Loading…';
+  var url = SUPA_URL + '/Route_Schedule?select=*&order="Route","Stop Number"&limit=3000';
+  fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } })
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(rows) {
+      rsData = rows;
+      rsBuildFilters();
+      rsFilter();
+    })
+    .catch(function(err) {
+      document.getElementById('rs-stats').textContent = '\u26a0 Failed to load: ' + err.message;
+    });
+}
+
+function rsBuildFilters() {
+  var routes = ['all'].concat(
+    Array.from(new Set(rsData.map(function(r){return r['Route'];}).filter(Boolean)))
+      .sort(function(a,b){ return parseInt(a)-parseInt(b); })
+  );
+  var rc = document.getElementById('rs-route-filters');
+  rc.innerHTML = '';
+  routes.forEach(function(v) {
+    var b = document.createElement('button');
+    b.className = 'tbtn' + (v === 'all' ? ' on' : '');
+    b.textContent = v === 'all' ? 'All' : 'R' + v;
+    b.dataset.val = v;
+    b.onclick = function() {
+      rc.querySelectorAll('.tbtn').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      rsActiveRoute = v;
+      rsFilter();
+    };
+    rc.appendChild(b);
+  });
+
+  var types = ['all'].concat(
+    Array.from(new Set(rsData.map(function(r){return r['Store type'];}).filter(Boolean))).sort()
+  );
+  var tc = document.getElementById('rs-type-filters');
+  tc.innerHTML = '';
+  types.forEach(function(v) {
+    var b = document.createElement('button');
+    b.className = 'tbtn' + (v === 'all' ? ' on' : '');
+    b.textContent = v === 'all' ? 'All' : v;
+    b.dataset.val = v;
+    b.onclick = function() {
+      tc.querySelectorAll('.tbtn').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      rsActiveType = v;
+      rsFilter();
+    };
+    tc.appendChild(b);
+  });
+}
+
+function rsFilter() {
+  var q = (document.getElementById('rs-search').value || '').trim().toLowerCase();
+  rsFilt = rsData.filter(function(r) {
+    if (rsActiveRoute !== 'all' && r['Route'] !== rsActiveRoute) return false;
+    if (rsActiveType !== 'all' && r['Store type'] !== rsActiveType) return false;
+    if (q) {
+      var hay = [r['Store Number'], r['City'], r['State'], r['Tentative Date'], r['Address']].join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  document.getElementById('rs-stats').textContent = rsFilt.length.toLocaleString() + ' stops';
+  rsRender();
+  rsCloseDevPanel();
+}
+
+function rsRender() {
+  var tb = document.getElementById('rs-tbody');
+  var empty = document.getElementById('rs-empty');
+  if (!rsFilt.length) { tb.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  var html = rsFilt.map(function(r, i) {
+    var typeColor = r['Store type'] === "Sam's Club" ? 'color:#9bd96a' : 'color:#5db8f5';
+    var tc    = parseInt(r['Thin Client'] || 0) || 0;
+    var slim  = parseInt(r['Dell Pro Slim Plus QBS1250'] || 0) || 0;
+    var micro = parseInt(r['Dell Pro Mico Plus (100728121)'] || 0) || 0;
+    var tower = parseInt(r['Dell Pro Max Tower T2 FCT2250 (100726680)'] || 0) || 0;
+    var printers = ['MS826','MS632','MX722','MX632','CX632','CX735','CS531']
+      .reduce(function(s,k){ return s + (parseInt(r[k]||0)||0); }, 0);
+    function cnt(n) { return n > 0 ? '<span style="font-family:var(--mono);font-weight:600;">' + n + '</span>' : '<span style="color:var(--dim);">\u2014</span>'; }
+    var drive = r['Drive Time to Next Stop'] || '\u2014';
+    var dist  = r['Distance to Next Stop (miles)'] ? r['Distance to Next Stop (miles)'] + 'mi' : '';
+    return '<tr style="border-top:1px solid var(--brd);cursor:pointer;" onclick="rsRowClick(' + i + ',this)" id="rs-row-' + i + '">'
+      + '<td style="padding:8px 10px;font-family:var(--mono);font-weight:700;color:var(--acc);">R' + (r['Route']||'?') + '</td>'
+      + '<td style="padding:8px 10px;color:var(--dim);font-family:var(--mono);">' + (r['Stop Number']||'\u2014') + '</td>'
+      + '<td style="padding:8px 10px;font-family:var(--mono);font-weight:700;">' + (r['Store Number']||'\u2014') + '</td>'
+      + '<td style="padding:8px 10px;font-size:11px;' + typeColor + ';">' + h(r['Store type']||'') + '</td>'
+      + '<td style="padding:8px 10px;">' + h(r['City']||'') + (r['State'] ? ', '+r['State'] : '') + '</td>'
+      + '<td style="padding:8px 10px;font-family:var(--mono);font-size:11px;">' + (r['Tentative Date']||'\u2014') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;">' + cnt(tc) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;">' + cnt(slim) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;">' + cnt(micro) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;">' + cnt(tower) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;">' + cnt(printers) + '</td>'
+      + '<td style="padding:8px 10px;font-size:11px;color:var(--dim);">' + drive + (dist ? ' \u00b7 ' + dist : '') + '</td>'
+      + '</tr>';
+  }).join('');
+  tb.innerHTML = html;
+}
+
+var rsOpenRowIdx = -1;
+function rsRowClick(i, tr) {
+  if (rsOpenRowIdx === i) { rsCloseDevPanel(); return; }
+  rsOpenRowIdx = i;
+  document.querySelectorAll('#rs-tbody tr').forEach(function(r){r.style.background='';});
+  tr.style.background = 'var(--surf2)';
+
+  var row = rsFilt[i];
+  var storeNum = row['Store Number'];
+  var panel = document.getElementById('rs-dev-panel');
+  var devTitle = document.getElementById('rs-dev-title');
+  var body  = document.getElementById('rs-dev-body');
+
+  devTitle.textContent = 'Store ' + storeNum + ' \u00b7 ' + (row['City']||'') + ', ' + (row['State']||'') + ' \u00b7 Route ' + (row['Route']||'') + ' Stop ' + (row['Stop Number']||'');
+  body.innerHTML = '<div style="color:var(--dim);font-size:12px;font-family:var(--mono);">Loading devices\u2026</div>';
+  panel.style.display = '';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  var url = SUPA_URL + '/devices?site=eq.' + encodeURIComponent(storeNum)
+    + '&select=hostname,serial,role,device_cat,ip,mac,replace,sheet_tab&order=device_cat,hostname&limit=500';
+  fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(devices) {
+      if (!devices.length) {
+        body.innerHTML = '<div style="color:var(--dim);font-size:12px;">No devices found for store ' + storeNum + '.</div>';
+        return;
+      }
+      var groups = {};
+      devices.forEach(function(d){ var c=d.device_cat||'Other'; if(!groups[c]) groups[c]=[]; groups[c].push(d); });
+
+      var out = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
+        + '<span style="font-size:11px;color:var(--mut);">' + devices.length + ' total devices</span>';
+      Object.keys(groups).forEach(function(cat){
+        out += '<span style="font-size:11px;padding:1px 7px;border-radius:4px;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);">' + cat + ': <b>' + groups[cat].length + '</b></span>';
+      });
+      out += '</div><div style="overflow-x:auto;">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);">'
+        + '<thead><tr style="background:var(--surf2);">'
+        + ['Cat','Hostname','Serial','Role','IP','MAC','Replace'].map(function(c){
+            return '<th style="padding:5px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);border-bottom:1px solid var(--brd);white-space:nowrap;">' + c + '</th>';
+          }).join('')
+        + '</tr></thead><tbody>';
+      devices.forEach(function(d){
+        var repStyle = (d.replace||'').toUpperCase()==='YES' ? 'color:#f08882;font-weight:700;' : 'color:var(--dim);';
+        out += '<tr style="border-top:1px solid var(--brd);">'
+          + '<td style="padding:5px 8px;color:var(--mut);">' + h(d.device_cat||'\u2014') + '</td>'
+          + '<td style="padding:5px 8px;font-weight:600;">' + h(d.hostname||'\u2014') + '</td>'
+          + '<td style="padding:5px 8px;color:var(--dim);">' + h(d.serial||'\u2014') + '</td>'
+          + '<td style="padding:5px 8px;">' + h(d.role||'\u2014') + '</td>'
+          + '<td style="padding:5px 8px;color:var(--acc);">' + (d.ip ? '<span onclick="navigator.clipboard.writeText(\''+d.ip+'\').then(function(){toast(\'Copied IP\')})" style="cursor:pointer;" title="Click to copy">'+h(d.ip)+'</span>' : '<span style="color:var(--dim);">\u2014</span>') + '</td>'
+          + '<td style="padding:5px 8px;color:var(--dim);font-size:10px;">' + h(d.mac||'\u2014') + '</td>'
+          + '<td style="padding:5px 8px;' + repStyle + '">' + h(d.replace||'\u2014') + '</td>'
+          + '</tr>';
+      });
+      body.innerHTML = out + '</tbody></table></div>';
+    })
+    .catch(function(err){
+      body.innerHTML = '<div style="color:var(--red);font-size:12px;">Error: ' + err.message + '</div>';
+    });
+}
+
+function rsCloseDevPanel() {
+  rsOpenRowIdx = -1;
+  document.querySelectorAll('#rs-tbody tr').forEach(function(r){r.style.background='';});
+  document.getElementById('rs-dev-panel').style.display = 'none';
+}
 
 (function() {
   var _op = window.showPg || showPg;
