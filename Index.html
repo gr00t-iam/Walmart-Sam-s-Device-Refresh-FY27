@@ -352,22 +352,7 @@ kbd{background:var(--surf2);padding:1px 6px;border-radius:3px;font-family:'DM Mo
     <!-- Table -->
     <div class="ta" style="overflow-x:auto;overflow-y:auto;">
       <table id="rs-tbl" style="width:100%;border-collapse:collapse;min-width:900px;font-size:12px;">
-        <thead style="position:sticky;top:0;z-index:1;background:var(--surf2);">
-          <tr>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Route</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Stop</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Store #</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Type</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">City / State</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Tentative Date</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">TC</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Slim+</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Micro</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Dell Tower</th>
-            <th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Printers</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--brd);">Drive &rarr; Next</th>
-          </tr>
-        </thead>
+        <thead><tr id="rs-hr"></tr></thead>
         <tbody id="rs-tbody"></tbody>
       </table>
       <div id="rs-empty" style="display:none;padding:46px;text-align:center;color:var(--mut);">
@@ -3456,14 +3441,94 @@ window.addEventListener("load", function() {
  * ═══════════════════════════════════════════════════════════════ */
 var rsData = [], rsFilt = [], rsActiveRoute = 'all', rsActiveType = 'all';
 
+// Column definitions: [id, label, align, defaultWidth]
+var RS_COLS = [
+  ['route',    'Route',          'left',  54],
+  ['stop',     'Stop',           'left',  46],
+  ['store',    'Store #',        'left',  64],
+  ['type',     'Type',           'left',  90],
+  ['city',     'City / State',   'left', 160],
+  ['date',     'Tentative Date', 'left', 118],
+  ['tc',       'TC',             'right', 46],
+  ['slim',     'Dell Slim+',     'right', 76],
+  ['micro',    'Dell Micro',     'right', 76],
+  ['tower',    'Dell Tower',     'right', 76],
+  ['printers', 'Printers',       'right', 64],
+  ['drive',    'Drive \u2192 Next','left',118],
+];
+var rsCW = {};
+RS_COLS.forEach(function(c){ rsCW[c[0]] = c[3]; });
+
+// Column resize state — separate from dashboard's _colResizing
+var _rsResizing = false, _rsResizeCid = null, _rsResizeStart = 0, _rsResizeW0 = 0, _rsResizeTh = null;
+
+function rsStartResize(e, cid, th) {
+  e.preventDefault(); e.stopPropagation();
+  _rsResizing = true; _rsResizeCid = cid; _rsResizeStart = e.clientX;
+  _rsResizeW0 = rsCW[cid] || 80; _rsResizeTh = th;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+document.addEventListener('mousemove', function(e) {
+  if (!_rsResizing) return;
+  var nw = Math.max(40, _rsResizeW0 + (e.clientX - _rsResizeStart));
+  rsCW[_rsResizeCid] = nw;
+  if (_rsResizeTh) _rsResizeTh.style.width = nw + 'px';
+  var ci = RS_COLS.findIndex(function(c){ return c[0] === _rsResizeCid; });
+  if (ci >= 0) {
+    var tbl = document.getElementById('rs-tbl');
+    if (tbl) tbl.querySelectorAll('tbody tr').forEach(function(tr){
+      var td = tr.cells[ci]; if (td) td.style.width = nw + 'px';
+    });
+  }
+});
+document.addEventListener('mouseup', function(e) {
+  if (!_rsResizing) return;
+  _rsResizing = false;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  _rsResizeTh = null;
+});
+
+function rsRebuildHeader() {
+  var hr = document.getElementById('rs-hr');
+  if (!hr) return;
+  hr.innerHTML = '';
+  RS_COLS.forEach(function(col) {
+    var th = document.createElement('th');
+    th.className = 'sr';
+    th.style.width = rsCW[col[0]] + 'px';
+    th.style.minWidth = '40px';
+    th.style.position = 'relative';
+    th.style.padding = '8px 10px';
+    th.style.textAlign = col[2];
+    th.style.fontSize = '10px';
+    th.style.fontWeight = '700';
+    th.style.textTransform = 'uppercase';
+    th.style.letterSpacing = '.06em';
+    th.style.color = 'var(--mut)';
+    th.style.borderBottom = '1px solid var(--brd)';
+    th.style.background = 'var(--surf2)';
+    th.style.whiteSpace = 'nowrap';
+    th.innerHTML = col[1]
+      + '<span title="Drag to resize" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;'
+      + 'display:flex;align-items:center;justify-content:center;opacity:.4;font-size:9px;user-select:none;" '
+      + 'onmousedown="rsStartResize(event,\'' + col[0] + '\',this.parentElement)">\u2502</span>';
+    hr.appendChild(th);
+  });
+}
+
 function initRoute() {
-  if (rsData.length) { rsRender(); return; }
-  document.getElementById('rs-stats').textContent = 'Loading…';
-  var url = SUPA_URL + '/Route_Schedule?select=*&order="Route","Stop Number"&limit=3000';
+  if (rsData.length) { rsRebuildHeader(); rsRender(); return; }
+  document.getElementById('rs-stats').textContent = 'Loading\u2026';
+  // Use percent-encoded space for column names with spaces in order param
+  var url = SUPA_URL + '/Route_Schedule?select=*&order=Route,Stop%20Number&limit=3000';
   fetch(url, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } })
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(rows) {
+      if (!Array.isArray(rows)) throw new Error('Unexpected response: ' + JSON.stringify(rows).slice(0, 120));
       rsData = rows;
+      rsRebuildHeader();
       rsBuildFilters();
       rsFilter();
     })
@@ -3556,7 +3621,7 @@ function rsRender() {
   var empty = document.getElementById('rs-empty');
   if (!rsFilt.length) { tb.innerHTML = ''; empty.style.display = ''; return; }
   empty.style.display = 'none';
-
+  var w = rsCW;
   var html = rsFilt.map(function(r, i) {
     var typeColor = r['Store type'] === "Sam's Club" ? 'color:#9bd96a' : 'color:#5db8f5';
     var tc    = parseInt(r['Thin Client'] || 0) || 0;
@@ -3565,26 +3630,28 @@ function rsRender() {
     var tower = parseInt(r['Dell Pro Max Tower T2 FCT2250 (100726680)'] || 0) || 0;
     var printers = ['MS826','MS632','MX722','MX632','CX632','CX735','CS531']
       .reduce(function(s,k){ return s + (parseInt(r[k]||0)||0); }, 0);
-    function cnt(n) { return n > 0 ? '<span style="font-family:var(--mono);font-weight:600;">' + n + '</span>' : '<span style="color:var(--dim);">\u2014</span>'; }
-    var drive = r['Drive Time to Next Stop'] || '\u2014';
+    function cnt(n) { return n > 0 ? '<b style="font-family:var(--mono);">' + n + '</b>' : '<span style="color:var(--dim);">—</span>'; }
+    var drive = r['Drive Time to Next Stop'] || '—';
     var dist  = r['Distance to Next Stop (miles)'] ? r['Distance to Next Stop (miles)'] + 'mi' : '';
-    return '<tr style="border-top:1px solid var(--brd);cursor:pointer;" onclick="rsRowClick(' + i + ',this)" id="rs-row-' + i + '">'
-      + '<td style="padding:8px 10px;font-family:var(--mono);font-weight:700;color:var(--acc);">R' + (r['Route']||'?') + '</td>'
-      + '<td style="padding:8px 10px;color:var(--dim);font-family:var(--mono);">' + (r['Stop Number']||'\u2014') + '</td>'
-      + '<td style="padding:8px 10px;font-family:var(--mono);font-weight:700;">' + (r['Store Number']||'\u2014') + '</td>'
-      + '<td style="padding:8px 10px;font-size:11px;' + typeColor + ';">' + h(r['Store type']||'') + '</td>'
-      + '<td style="padding:8px 10px;">' + h(r['City']||'') + (r['State'] ? ', '+r['State'] : '') + '</td>'
-      + '<td style="padding:8px 10px;font-family:var(--mono);font-size:11px;">' + (r['Tentative Date']||'\u2014') + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;">' + cnt(tc) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;">' + cnt(slim) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;">' + cnt(micro) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;">' + cnt(tower) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;">' + cnt(printers) + '</td>'
-      + '<td style="padding:8px 10px;font-size:11px;color:var(--dim);">' + drive + (dist ? ' \u00b7 ' + dist : '') + '</td>'
+    var p = 'padding:8px 10px;border-top:1px solid var(--brd);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    return '<tr style="cursor:pointer;" onclick="rsRowClick(' + i + ',this)" id="rs-row-' + i + '">'
+      + '<td style="'+p+'width:'+w.route+'px;font-family:var(--mono);font-weight:700;color:var(--acc);">R' + (r['Route']||'?') + '</td>'
+      + '<td style="'+p+'width:'+w.stop+'px;color:var(--dim);font-family:var(--mono);">' + (r['Stop Number']||'—') + '</td>'
+      + '<td style="'+p+'width:'+w.store+'px;font-family:var(--mono);font-weight:700;">' + (r['Store Number']||'—') + '</td>'
+      + '<td style="'+p+'width:'+w.type+'px;font-size:11px;' + typeColor + ';">' + h(r['Store type']||'') + '</td>'
+      + '<td style="'+p+'width:'+w.city+'px;">' + h(r['City']||'') + (r['State'] ? ', '+r['State'] : '') + '</td>'
+      + '<td style="'+p+'width:'+w.date+'px;font-family:var(--mono);font-size:11px;">' + (r['Tentative Date']||'—') + '</td>'
+      + '<td style="'+p+'width:'+w.tc+'px;text-align:right;">' + cnt(tc) + '</td>'
+      + '<td style="'+p+'width:'+w.slim+'px;text-align:right;">' + cnt(slim) + '</td>'
+      + '<td style="'+p+'width:'+w.micro+'px;text-align:right;">' + cnt(micro) + '</td>'
+      + '<td style="'+p+'width:'+w.tower+'px;text-align:right;">' + cnt(tower) + '</td>'
+      + '<td style="'+p+'width:'+w.printers+'px;text-align:right;">' + cnt(printers) + '</td>'
+      + '<td style="'+p+'width:'+w.drive+'px;font-size:11px;color:var(--dim);">' + drive + (dist ? ' · ' + dist : '') + '</td>'
       + '</tr>';
   }).join('');
   tb.innerHTML = html;
 }
+
 
 var rsOpenRowIdx = -1;
 function rsRowClick(i, tr) {
